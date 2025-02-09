@@ -102,9 +102,9 @@ export async function prompt({
   silentMode,
 }: { usePrompt?: string; silentMode?: boolean } = {}) {
   const {
-    OPENAI_KEY: key,
+    GROQ_API_KEY: key,
     SILENT_MODE,
-    OPENAI_API_ENDPOINT: apiEndpoint,
+    GROQ_API_ENDPOINT: apiEndpoint,
     MODEL: model,
   } = await getConfig();
   const skipCommandExplanation = silentMode || SILENT_MODE;

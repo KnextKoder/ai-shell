@@ -1,7 +1,7 @@
 {
   "name": "@knextkoder/ai-shell",
-  "description": "A CLI that converts natural language to shell commands.",
-  "version": "1.0.12",
+  "description": "A CLI that converts natural language to shell commands. (Forked from @builder.io/ai-shell)",
+  "version": "1.0.0",
   "type": "module",
   "dependencies": {
     "@clack/core": "latest",

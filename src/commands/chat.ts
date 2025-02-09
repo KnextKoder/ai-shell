@@ -18,7 +18,9 @@ interface GetResponseParams {
   apiEndpoint: string;
 }
 
-async function getResponse(params: GetResponseParams): Promise<{ readResponse: (writer: (data: string) => void) => Promise<string> }> {
+async function getResponse(params: GetResponseParams): Promise<{
+  readResponse: (writer: (data: string) => void) => Promise<string>;
+}> {
   const { prompt, key, model, apiEndpoint } = params;
   const stream = await generateGroqCompletion({
     prompt,
@@ -70,7 +72,9 @@ export default command(
         content: userPrompt,
       });
       // Join the chat history into a single string for the prompt
-      const promptString = chatHistory.map(entry => `${entry.role}: ${entry.content}`).join('\n');
+      const promptString = chatHistory
+        .map((entry) => `${entry.role}: ${entry.content}`)
+        .join('\n');
 
       const { readResponse } = await getResponse({
         prompt: promptString,

@@ -1,8 +1,4 @@
-import {
-  OpenAIApi,
-  Configuration,
-  Model,
-} from 'openai';
+import { OpenAIApi, Configuration, Model } from 'openai';
 import dedent from 'dedent';
 import { IncomingMessage } from 'http';
 import { KnownError } from './error';
@@ -57,7 +53,6 @@ export async function getScriptAndInfo({
   };
 }
 
-
 export async function generateGroqCompletion({
   prompt,
   model,
@@ -75,10 +70,12 @@ export async function generateGroqCompletion({
   try {
     const stream = await groq.chat.completions.create({
       model: model || 'llama3-70b-8192',
-      messages: [{
-        role: 'user',
-        content: prompt,
-      }],
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
       max_tokens: 1024, // Adjust as needed
       n: number,
       stream: true,
@@ -292,14 +289,14 @@ const explainScript = dedent`
 `;
 
 function getOperationSystemDetails() {
-  const sys = os
+  const sys = os;
   const OS = sys.type();
   if (OS === 'Windows_NT') {
     return 'Windows';
-  }else if (OS === 'Darwin') {
+  } else if (OS === 'Darwin') {
     return 'MacOS';
-  }else{
-    return 'Linux';   
+  } else {
+    return 'Linux';
   }
 }
 const generationDetails = dedent`

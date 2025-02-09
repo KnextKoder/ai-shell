@@ -29,7 +29,8 @@ const languagesOptions = Object.entries(i18n.languages).map(([key, value]) => ({
 // };
 
 const configParsers = {
-  GROQ_API_KEY(key?: string) { // New Groq API Key config
+  GROQ_API_KEY(key?: string) {
+    // New Groq API Key config
     if (!key) {
       throw new KnownError(
         `Please set your Groq API key via \`${commandName} config set GROQ_API_KEY=<your token>\``
@@ -48,7 +49,7 @@ const configParsers = {
     return String(mode).toLowerCase() === 'true';
   },
   GROQ_API_ENDPOINT(apiEndpoint?: string) {
-    return apiEndpoint || 'https://api.groq.com/'
+    return apiEndpoint || 'https://api.groq.com/';
   },
   LANGUAGE(language?: string) {
     return language || 'en';
