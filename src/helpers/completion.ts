@@ -1,7 +1,6 @@
 import {
   OpenAIApi,
   Configuration,
-  ChatCompletionRequestMessage,
   Model,
 } from 'openai';
 import dedent from 'dedent';
@@ -14,7 +13,10 @@ import { streamToString } from './stream-to-string';
 import './replace-all-polyfill';
 import i18n from './i18n';
 import { stripRegexPatterns } from './strip-regex-patterns';
-import readline from 'readline';
+import os from 'os';
+import { Groq } from 'groq-sdk'; // If you installed the Groq SDK
+import { Readable } from 'stream';
+// import readline from 'readline';
 
 const explainInSecondRequest = true;
 
@@ -41,7 +43,7 @@ export async function getScriptAndInfo({
   apiEndpoint: string;
 }) {
   const fullPrompt = getFullPrompt(prompt);
-  const stream = await generateCompletion({
+  const stream = await generateGroqCompletion({
     prompt: fullPrompt,
     number: 1,
     key,
@@ -55,37 +57,42 @@ export async function getScriptAndInfo({
   };
 }
 
-export async function generateCompletion({
+
+export async function generateGroqCompletion({
   prompt,
+  model,
   number = 1,
   key,
-  model,
   apiEndpoint,
 }: {
-  prompt: string | ChatCompletionRequestMessage[];
-  number?: number;
+  prompt: string;
   model?: string;
+  number?: number;
   key: string;
   apiEndpoint: string;
-}) {
-  const openAi = getOpenAi(key, apiEndpoint);
+}): Promise<IncomingMessage> {
+  const groq = new Groq({ apiKey: key, baseURL: apiEndpoint });
   try {
-    const completion = await openAi.createChatCompletion(
-      {
-        model: model || 'gpt-4o-mini',
-        messages: Array.isArray(prompt)
-          ? prompt
-          : [{ role: 'user', content: prompt }],
-        n: Math.min(number, 10),
-        stream: true,
-      },
-      { responseType: 'stream' }
-    );
+    const stream = await groq.chat.completions.create({
+      model: model || 'llama3-70b-8192',
+      messages: [{
+        role: 'user',
+        content: prompt,
+      }],
+      max_tokens: 1024, // Adjust as needed
+      n: number,
+      stream: true,
+    });
 
-    return completion.data as unknown as IncomingMessage;
+    const responseString = JSON.stringify(stream); // Serialize the response
+    const buffer = Buffer.from(responseString, 'utf-8'); // Create a buffer from the string
+    const readableStream = new Readable(); // Create a readable stream
+    readableStream.push(buffer); // Push the buffer to the stream
+    readableStream.push(null); // Signal the end of the stream
+
+    return readableStream as unknown as IncomingMessage;
   } catch (err) {
     const error = err as AxiosError;
-
     if (error.code === 'ENOTFOUND') {
       throw new KnownError(
         `Error connecting to ${error.request.hostname} (${error.request.syscall}). Are you connected to the internet?`
@@ -105,33 +112,34 @@ export async function generateCompletion({
       } catch (e) {
         // Ignore
       }
+
+      const messageString = message && JSON.stringify(message, null, 2);
+      if (response?.status === 429) {
+        throw new KnownError(
+          dedent`
+          Request to Groq failed with status 429. This is due to network error or excessive quota usage. Please follow this guide to fix it: https://help.openai.com/en/articles/6891831-error-code-429-you-exceeded-your-current-quota-please-check-your-plan-and-billing-details
+
+          You can activate billing here: https://platform.openai.com/account/billing/overview . Make sure to add a payment method if not under an active grant from OpenAI.
+
+          Full message from OpenAI:
+        ` +
+            '\n\n' +
+            messageString +
+            '\n'
+        );
+      } else if (response && message) {
+        throw new KnownError(
+          dedent`
+          Request to OpenAI failed with status ${response?.status}:
+        ` +
+            '\n\n' +
+            messageString +
+            '\n'
+        );
+      }
     }
 
-    const messageString = message && JSON.stringify(message, null, 2);
-    if (response?.status === 429) {
-      throw new KnownError(
-        dedent`
-        Request to OpenAI failed with status 429. This is due to incorrect billing setup or excessive quota usage. Please follow this guide to fix it: https://help.openai.com/en/articles/6891831-error-code-429-you-exceeded-your-current-quota-please-check-your-plan-and-billing-details
-
-        You can activate billing here: https://platform.openai.com/account/billing/overview . Make sure to add a payment method if not under an active grant from OpenAI.
-
-        Full message from OpenAI:
-      ` +
-          '\n\n' +
-          messageString +
-          '\n'
-      );
-    } else if (response && message) {
-      throw new KnownError(
-        dedent`
-        Request to OpenAI failed with status ${response?.status}:
-      ` +
-          '\n\n' +
-          messageString +
-          '\n'
-      );
-    }
-
+    // If the error is not handled above, rethrow it
     throw error;
   }
 }
@@ -148,7 +156,7 @@ export async function getExplanation({
   apiEndpoint: string;
 }) {
   const prompt = getExplanationPrompt(script);
-  const stream = await generateCompletion({
+  const stream = await generateGroqCompletion({
     prompt,
     key,
     number: 1,
@@ -173,7 +181,7 @@ export async function getRevision({
   apiEndpoint: string;
 }) {
   const fullPrompt = getRevisionPrompt(prompt, code);
-  const stream = await generateCompletion({
+  const stream = await generateGroqCompletion({
     prompt: fullPrompt,
     key,
     number: 1,
@@ -202,9 +210,9 @@ export const readData =
       const [excludedPrefix] = excluded;
       const stopTextStreamKeys = ['q', 'escape']; //Group of keys that stop the text stream
 
-      const rl = readline.createInterface({
-        input: process.stdin,
-      });
+      // const rl = readline.createInterface({
+      //   input: process.stdin,
+      // });
 
       process.stdin.setRawMode(true);
 
@@ -284,8 +292,15 @@ const explainScript = dedent`
 `;
 
 function getOperationSystemDetails() {
-  const os = require('@nexssp/os/legacy');
-  return os.name();
+  const sys = os
+  const OS = sys.type();
+  if (OS === 'Windows_NT') {
+    return 'Windows';
+  }else if (OS === 'Darwin') {
+    return 'MacOS';
+  }else{
+    return 'Linux';   
+  }
 }
 const generationDetails = dedent`
     Only reply with the single line command surrounded by three backticks. It must be able to be directly run in the target shell. Do not include any other text.

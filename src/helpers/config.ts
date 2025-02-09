@@ -20,22 +20,21 @@ const languagesOptions = Object.entries(i18n.languages).map(([key, value]) => ({
   label: value,
 }));
 
-const parseAssert = (name: string, condition: any, message: string) => {
-  if (!condition) {
-    throw new KnownError(
-      `${i18n.t('Invalid config property')} ${name}: ${message}`
-    );
-  }
-};
+// const parseAssert = (name: string, condition: any, message: string) => {
+//   if (!condition) {
+//     throw new KnownError(
+//       `${i18n.t('Invalid config property')} ${name}: ${message}`
+//     );
+//   }
+// };
 
 const configParsers = {
-  OPENAI_KEY(key?: string) {
+  GROQ_API_KEY(key?: string) { // New Groq API Key config
     if (!key) {
       throw new KnownError(
-        `Please set your OpenAI API key via \`${commandName} config set OPENAI_KEY=<your token>\`` // TODO: i18n
+        `Please set your Groq API key via \`${commandName} config set GROQ_API_KEY=<your token>\``
       );
     }
-
     return key;
   },
   MODEL(model?: string) {
@@ -48,8 +47,8 @@ const configParsers = {
   SILENT_MODE(mode?: string) {
     return String(mode).toLowerCase() === 'true';
   },
-  OPENAI_API_ENDPOINT(apiEndpoint?: string) {
-    return apiEndpoint || 'https://api.openai.com/v1';
+  GROQ_API_ENDPOINT(apiEndpoint?: string) {
+    return apiEndpoint || 'https://api.groq.com/'
   },
   LANGUAGE(language?: string) {
     return language || 'en';
@@ -121,18 +120,17 @@ export const showConfigUI = async () => {
       message: i18n.t('Set config') + ':',
       options: [
         {
-          label: i18n.t('OpenAI Key'),
-          value: 'OPENAI_KEY',
-          hint: hasOwn(config, 'OPENAI_KEY')
-            ? // Obfuscate the key
-              'sk-...' + config.OPENAI_KEY.slice(-3)
+          label: i18n.t('Groq API Key'),
+          value: 'GROQ_API_KEY',
+          hint: hasOwn(config, 'GROQ_API_KEY')
+            ? 'gk-...' + config.GROQ_API_KEY.slice(-3)
             : i18n.t('(not set)'),
         },
         {
-          label: i18n.t('OpenAI API Endpoint'),
-          value: 'OPENAI_API_ENDPOINT',
-          hint: hasOwn(config, 'OPENAI_API_ENDPOINT')
-            ? config.OPENAI_API_ENDPOINT
+          label: i18n.t('Groq API Endpoint'),
+          value: 'GROQ_API_ENDPOINT',
+          hint: hasOwn(config, 'GROQ_API_ENDPOINT')
+            ? config.GROQ_API_ENDPOINT
             : i18n.t('(not set)'),
         },
         {
@@ -164,9 +162,9 @@ export const showConfigUI = async () => {
 
     if (p.isCancel(choice)) return;
 
-    if (choice === 'OPENAI_KEY') {
+    if (choice === 'GROQ_API_KEY') {
       const key = await p.text({
-        message: i18n.t('Enter your OpenAI API key'),
+        message: i18n.t('Enter your Groq API key'),
         validate: (value) => {
           if (!value.length) {
             return i18n.t('Please enter a key');
@@ -174,13 +172,13 @@ export const showConfigUI = async () => {
         },
       });
       if (p.isCancel(key)) return;
-      await setConfigs([['OPENAI_KEY', key]]);
-    } else if (choice === 'OPENAI_API_ENDPOINT') {
+      await setConfigs([['GROQ_API_KEY', key]]);
+    } else if (choice === 'GROQ_API_ENDPOINT') {
       const apiEndpoint = await p.text({
-        message: i18n.t('Enter your OpenAI API Endpoint'),
+        message: i18n.t('Enter your Groq API Endpoint'),
       });
       if (p.isCancel(apiEndpoint)) return;
-      await setConfigs([['OPENAI_API_ENDPOINT', apiEndpoint]]);
+      await setConfigs([['GROQ_API_ENDPOINT', apiEndpoint]]);
     } else if (choice === 'SILENT_MODE') {
       const silentMode = await p.confirm({
         message: i18n.t('Enable silent mode?'),
@@ -188,7 +186,7 @@ export const showConfigUI = async () => {
       if (p.isCancel(silentMode)) return;
       await setConfigs([['SILENT_MODE', silentMode ? 'true' : 'false']]);
     } else if (choice === 'MODEL') {
-      const { OPENAI_KEY: key, OPENAI_API_ENDPOINT: apiEndpoint } =
+      const { GROQ_API_KEY: key, GROQ_API_ENDPOINT: apiEndpoint } =
         await getConfig();
       const models = await getModels(key, apiEndpoint);
       const model = (await p.select({

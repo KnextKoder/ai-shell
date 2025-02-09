@@ -1,11 +1,34 @@
 import { command } from 'cleye';
 import { spinner, intro, outro, text, isCancel } from '@clack/prompts';
 import { cyan, green } from 'kolorist';
-import { generateCompletion, readData } from '../helpers/completion';
+import { generateGroqCompletion, readData } from '../helpers/completion';
 import { getConfig } from '../helpers/config';
 import { streamToIterable } from '../helpers/stream-to-iterable';
-import { ChatCompletionRequestMessage } from 'openai';
 import i18n from '../helpers/i18n';
+
+interface ChatEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface GetResponseParams {
+  prompt: string;
+  key: string;
+  model?: string;
+  apiEndpoint: string;
+}
+
+async function getResponse(params: GetResponseParams): Promise<{ readResponse: (writer: (data: string) => void) => Promise<string> }> {
+  const { prompt, key, model, apiEndpoint } = params;
+  const stream = await generateGroqCompletion({
+    prompt,
+    key,
+    model,
+    apiEndpoint,
+  });
+  const iterableStream = streamToIterable(stream);
+  return { readResponse: readData(iterableStream) };
+}
 
 export default command(
   {
@@ -17,11 +40,11 @@ export default command(
   },
   async () => {
     const {
-      OPENAI_KEY: key,
-      OPENAI_API_ENDPOINT: apiEndpoint,
+      GROQ_API_KEY: key,
+      GROQ_API_ENDPOINT: apiEndpoint,
       MODEL: model,
     } = await getConfig();
-    const chatHistory: ChatCompletionRequestMessage[] = [];
+    const chatHistory: ChatEntry[] = [];
 
     console.log('');
     intro(i18n.t('Starting new conversation'));
@@ -46,8 +69,11 @@ export default command(
         role: 'user',
         content: userPrompt,
       });
+      // Join the chat history into a single string for the prompt
+      const promptString = chatHistory.map(entry => `${entry.role}: ${entry.content}`).join('\n');
+
       const { readResponse } = await getResponse({
-        prompt: chatHistory,
+        prompt: promptString,
         key,
         model,
         apiEndpoint,
@@ -70,29 +96,3 @@ export default command(
     prompt();
   }
 );
-
-async function getResponse({
-  prompt,
-  number = 1,
-  key,
-  model,
-  apiEndpoint,
-}: {
-  prompt: string | ChatCompletionRequestMessage[];
-  number?: number;
-  model?: string;
-  key: string;
-  apiEndpoint: string;
-}) {
-  const stream = await generateCompletion({
-    prompt,
-    key,
-    model,
-    number,
-    apiEndpoint,
-  });
-
-  const iterableStream = streamToIterable(stream);
-
-  return { readResponse: readData(iterableStream) };
-}
