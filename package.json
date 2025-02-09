@@ -1,7 +1,7 @@
 {
   "name": "@knextkoder/ai-shell",
   "description": "A CLI that converts natural language to shell commands. (Forked from @builder.io/ai-shell)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "dependencies": {
     "@clack/core": "latest",
@@ -27,8 +27,8 @@
     "dist"
   ],
   "bin": {
-    "ai-shell": "./dist/cli.mjs",
-    "ai": "./dist/cli.mjs"
+    "ai-shell": "./dist/cli.js",
+    "ai": "./dist/cli.js"
   },
   "scripts": {
     "start": "jiti ./src/cli.ts",
